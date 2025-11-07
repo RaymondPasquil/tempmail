@@ -333,15 +333,21 @@ useEffect(() => {
         </Card>
 
         {/* --- Integrated Ad Container --- */}
-       <div className="flex justify-center mt-8">
-  <div
-    id="banner-ad-box"
-    className="border rounded-lg shadow-md p-4 bg-muted flex items-center justify-center"
-    style={{ width: '160px', height: '300px' }}
-  >
-    <p className="text-sm text-muted-foreground">Loading Ad...</p>
-  </div>
+ 
+        
+<div className="flex justify-center mt-8">
+  <iframe
+    src="https://www.highperformanceformat.com/c0dde8f95414a6ee4c64549b85d55051/invoke.html"
+    title="ad"
+    width="160"
+    height="300"
+    style={{ border: 0 }}
+    referrerPolicy="no-referrer"
+    sandbox="allow-scripts allow-same-origin"
+  />
 </div>
+
+        
 
         {/* Footer */}
         <div className="text-center py-8 text-sm text-muted-foreground space-y-2">
