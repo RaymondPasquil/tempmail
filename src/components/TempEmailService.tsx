@@ -67,56 +67,72 @@ export default function TempEmailService() {
   // --- Inject third-party script for ad ---
 // ✅ --- Safe third-party ad injection ---
 // ✅ Sandboxed banner ad (prevents top-level redirects)
+// Safe-but-permissive sandboxed banner ad
 useEffect(() => {
   const timer = setTimeout(() => {
     try {
       const host = document.getElementById('banner-ad-box');
       if (!host) return;
 
-      // Create a sandboxed iframe
+      // 1) Make a sandboxed iframe
       const iframe = document.createElement('iframe');
-      iframe.setAttribute('title', 'ad');
-      iframe.setAttribute('referrerpolicy', 'no-referrer');
-      iframe.setAttribute('frameBorder', '0');
-      iframe.setAttribute('scrolling', 'no');
-      // NOTE: no "allow-top-navigation" or "allow-popups"
-      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-      iframe.style.width = '160px';
-      iframe.style.height = '300px';
+      iframe.title = 'ad';
+      iframe.referrerPolicy = 'no-referrer';
+      iframe.frameBorder = '0';
+      iframe.scrolling = 'no';
+      iframe.width = '160';
+      iframe.height = '300';
 
-      host.innerHTML = ''; // clear "Loading Ad…" text
+      // Key: allow the ad JS to run and open a new tab on user click,
+      // but DO NOT allow silent top-level redirects.
+      iframe.sandbox.add('allow-scripts');
+      iframe.sandbox.add('allow-same-origin');
+      iframe.sandbox.add('allow-popups');
+      iframe.sandbox.add('allow-top-navigation-by-user-activation');
+
+      host.innerHTML = ''; // clear "Loading Ad…"
       host.appendChild(iframe);
 
       const doc = iframe.contentDocument || iframe.contentWindow?.document;
       if (!doc) return;
 
-      // Write a tiny HTML document into the iframe and load the ad there
+      // 2) Write a minimal HTML shell and load the ad INSIDE the iframe
       doc.open();
-      doc.write(`
-        <!doctype html>
-        <html>
-          <head><meta charset="utf-8" /></head>
-          <body style="margin:0;padding:0;overflow:hidden;">
-            <div id="ad-slot" style="width:160px;height:300px;"></div>
-            <script>
-              // define atOptions INSIDE the iframe
-              window.atOptions = {
-                key: 'c0dde8f95414a6ee4c64549b85d55051',
-                format: 'iframe',
-                height: 300,
-                width: 160,
-                params: {}
-              };
-            </script>
-            <script src="https://www.highperformanceformat.com/c0dde8f95414a6ee4c64549b85d55051/invoke.js" async></script>
-          </body>
-        </html>
-      `);
+      doc.write(`<!doctype html>
+<html>
+  <head><meta charset="utf-8"></head>
+  <body style="margin:0;padding:0;overflow:hidden;width:160px;height:300px;">
+    <div id="ad-slot" style="width:160px;height:300px;"></div>
+    <script>
+      // Must exist before invoke.js
+      window.atOptions = {
+        key: 'c0dde8f95414a6ee4c64549b85d55051',
+        format: 'iframe',
+        height: 300,
+        width: 160,
+        params: {}
+      };
+    </script>
+    <script src="https://www.highperformanceformat.com/c0dde8f95414a6ee4c64549b85d55051/invoke.js" async></script>
+  </body>
+</html>`);
       doc.close();
-    } catch (err) {
-      console.error('Sandboxed banner failed to load:', err);
+
+      // 3) Watchdog: if nothing renders in 6s, show a fallback
+      setTimeout(() => {
+        try {
+          const d = iframe.contentDocument || iframe.contentWindow?.document;
+          const filled = d && d.body && d.body.querySelector('iframe, ins, a, img');
+          if (!filled) {
+            host.innerHTML =
+              '<div style="width:160px;height:300px;display:flex;align-items:center;justify-content:center;border:1px dashed #ccc;border-radius:8px;color:#888;font:12px system-ui">No ad available</div>';
+          }
+        } catch {}
+      }, 6000);
+    } catch (e) {
+      console.error('Ad load failed', e);
     }
-  }, 1200); // small delay to let hydration finish
+  }, 1200);
 
   return () => clearTimeout(timer);
 }, []);
@@ -333,19 +349,18 @@ useEffect(() => {
         </Card>
 
         {/* --- Integrated Ad Container --- */}
- 
-        
-<div className="flex justify-center mt-8">
-  <iframe
-    src="https://www.highperformanceformat.com/c0dde8f95414a6ee4c64549b85d55051/invoke.html"
-    title="ad"
-    width="160"
-    height="300"
-    style={{ border: 0 }}
-    referrerPolicy="no-referrer"
-    sandbox="allow-scripts allow-same-origin"
-  />
+    <div className="flex justify-center mt-8">
+  <div
+    id="banner-ad-box"
+    className="border rounded-lg shadow-md p-4 bg-muted flex items-center justify-center"
+    style={{ width: '160px', height: '300px' }}
+  >
+    <p className="text-sm text-muted-foreground">Loading Ad...</p>
+  </div>
 </div>
+
+        
+ 
 
         
 
