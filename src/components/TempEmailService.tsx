@@ -67,30 +67,31 @@ export default function TempEmailService() {
   // --- Inject third-party script for ad ---
 // ✅ --- Safe third-party ad injection ---
   useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
-        // ensure the container exists
-        let container = document.getElementById('container-a7edd9a03753e32bec0fa4d7d1fc1d07');
-        if (!container) {
-          container = document.createElement('div');
-          container.id = 'container-a7edd9a03753e32bec0fa4d7d1fc1d07';
-          document.body.appendChild(container);
-        }
+  const timer = setTimeout(() => {
+    try {
+      (window as any).atOptions = {
+        key: 'c0dde8f95414a6ee4c64549b85d55051',
+        format: 'iframe',
+        height: 300,
+        width: 160,
+        params: {},
+      };
 
-        // inject the ad script
-        const script = document.createElement('script');
-        script.src = 'https://pl28004595.effectivegatecpm.com/a7edd9a03753e32bec0fa4d7d1fc1d07/invoke.js';
-        script.async = true;
-        script.setAttribute('data-cfasync', 'false');
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = 'https://www.highperformanceformat.com/c0dde8f95414a6ee4c64549b85d55051/invoke.js';
+      script.async = true;
 
-        container.appendChild(script);
-      } catch (err) {
-        console.error('Ad script failed to load:', err);
-      }
-    }, 2000); // delay ensures hydration finishes first
+      const container = document.getElementById('banner-ad-box');
+      if (container) container.appendChild(script);
+    } catch (err) {
+      console.error('Banner ad failed to load:', err);
+    }
+  }, 2000);
 
-    return () => clearTimeout(timer);
-  }, []);
+  return () => clearTimeout(timer);
+}, []);
+
 
   // --- Helper functions ---
   const generateTempEmail = async () => {
@@ -302,7 +303,15 @@ export default function TempEmailService() {
         </Card>
 
         {/* --- Integrated Ad Container --- */}
-        <div id="ad-container" className="mt-6 w-full flex justify-center"></div>
+       <div className="flex justify-center mt-8">
+  <div
+    id="banner-ad-box"
+    className="border rounded-lg shadow-md p-4 bg-muted flex items-center justify-center"
+    style={{ width: '160px', height: '300px' }}
+  >
+    <p className="text-sm text-muted-foreground">Loading Ad...</p>
+  </div>
+</div>
 
         {/* Footer */}
         <div className="text-center py-8 text-sm text-muted-foreground space-y-2">
