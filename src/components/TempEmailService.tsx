@@ -66,31 +66,61 @@ export default function TempEmailService() {
 
   // --- Inject third-party script for ad ---
 // ✅ --- Safe third-party ad injection ---
-  useEffect(() => {
+// ✅ Sandboxed banner ad (prevents top-level redirects)
+useEffect(() => {
   const timer = setTimeout(() => {
     try {
-      (window as any).atOptions = {
-        key: 'c0dde8f95414a6ee4c64549b85d55051',
-        format: 'iframe',
-        height: 300,
-        width: 160,
-        params: {},
-      };
+      const host = document.getElementById('banner-ad-box');
+      if (!host) return;
 
-      const script = document.createElement('script');
-      script.type = 'text/javascript';
-      script.src = 'https://www.highperformanceformat.com/c0dde8f95414a6ee4c64549b85d55051/invoke.js';
-      script.async = true;
+      // Create a sandboxed iframe
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('title', 'ad');
+      iframe.setAttribute('referrerpolicy', 'no-referrer');
+      iframe.setAttribute('frameBorder', '0');
+      iframe.setAttribute('scrolling', 'no');
+      // NOTE: no "allow-top-navigation" or "allow-popups"
+      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+      iframe.style.width = '160px';
+      iframe.style.height = '300px';
 
-      const container = document.getElementById('banner-ad-box');
-      if (container) container.appendChild(script);
+      host.innerHTML = ''; // clear "Loading Ad…" text
+      host.appendChild(iframe);
+
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) return;
+
+      // Write a tiny HTML document into the iframe and load the ad there
+      doc.open();
+      doc.write(`
+        <!doctype html>
+        <html>
+          <head><meta charset="utf-8" /></head>
+          <body style="margin:0;padding:0;overflow:hidden;">
+            <div id="ad-slot" style="width:160px;height:300px;"></div>
+            <script>
+              // define atOptions INSIDE the iframe
+              window.atOptions = {
+                key: 'c0dde8f95414a6ee4c64549b85d55051',
+                format: 'iframe',
+                height: 300,
+                width: 160,
+                params: {}
+              };
+            </script>
+            <script src="https://www.highperformanceformat.com/c0dde8f95414a6ee4c64549b85d55051/invoke.js" async></script>
+          </body>
+        </html>
+      `);
+      doc.close();
     } catch (err) {
-      console.error('Banner ad failed to load:', err);
+      console.error('Sandboxed banner failed to load:', err);
     }
-  }, 2000);
+  }, 1200); // small delay to let hydration finish
 
   return () => clearTimeout(timer);
 }, []);
+
 
 
   // --- Helper functions ---
