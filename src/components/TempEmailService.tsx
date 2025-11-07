@@ -65,18 +65,31 @@ export default function TempEmailService() {
   }, [account]);
 
   // --- Inject third-party script for ad ---
+// ✅ --- Safe third-party ad injection ---
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = '//pl28004595.effectivegatecpm.com/a7edd9a03753e32bec0fa4d7d1fc1d07/invoke.js';
-    script.async = true;
-    script.setAttribute('data-cfasync', 'false');
+    const timer = setTimeout(() => {
+      try {
+        // ensure the container exists
+        let container = document.getElementById('container-a7edd9a03753e32bec0fa4d7d1fc1d07');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'container-a7edd9a03753e32bec0fa4d7d1fc1d07';
+          document.body.appendChild(container);
+        }
 
-    const container = document.getElementById('ad-container');
-    if (container) container.appendChild(script);
+        // inject the ad script
+        const script = document.createElement('script');
+        script.src = 'https://pl28004595.effectivegatecpm.com/a7edd9a03753e32bec0fa4d7d1fc1d07/invoke.js';
+        script.async = true;
+        script.setAttribute('data-cfasync', 'false');
 
-    return () => {
-      if (container && script.parentNode === container) container.removeChild(script);
-    };
+        container.appendChild(script);
+      } catch (err) {
+        console.error('Ad script failed to load:', err);
+      }
+    }, 2000); // delay ensures hydration finishes first
+
+    return () => clearTimeout(timer);
   }, []);
 
   // --- Helper functions ---
