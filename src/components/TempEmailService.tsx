@@ -35,77 +35,70 @@ interface Message {
 export default function TempEmailService() {
   const [account, setAccount] = useState<TempAccount | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [timeRemaining, setTimeRemaining] = useState<number>(600); // 10 minutes in seconds
+  const [timeRemaining, setTimeRemaining] = useState<number>(600); // 10 minutes
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isExtending, setIsExtending] = useState<boolean>(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [isMessageLoading, setIsMessageLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  // Generate temporary email on component mount
+  // --- Generate temporary email on mount ---
   useEffect(() => {
     generateTempEmail();
   }, []);
 
-  // Countdown timer
+  // --- Countdown timer ---
   useEffect(() => {
     if (timeRemaining <= 0) {
       handleExpiration();
       return;
     }
-
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => prev - 1);
-    }, 1000);
-
+    const timer = setInterval(() => setTimeRemaining(prev => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [timeRemaining]);
 
-  // Poll for new messages every 5 seconds
+  // --- Poll for new messages every 5 seconds ---
   useEffect(() => {
     if (!account) return;
-
-    const interval = setInterval(() => {
-      fetchMessages();
-    }, 5000);
-
+    const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
   }, [account]);
 
+  // --- Inject third-party script for ad ---
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = '//pl28004595.effectivegatecpm.com/a7edd9a03753e32bec0fa4d7d1fc1d07/invoke.js';
+    script.async = true;
+    script.setAttribute('data-cfasync', 'false');
+
+    const container = document.getElementById('ad-container');
+    if (container) container.appendChild(script);
+
+    return () => {
+      if (container && script.parentNode === container) container.removeChild(script);
+    };
+  }, []);
+
+  // --- Helper functions ---
   const generateTempEmail = async () => {
     setIsLoading(true);
-    
     try {
-      console.log('Generating temporary email...');
-      const response = await fetch('/api/temp-email/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
+      const response = await fetch('/api/temp-email/create', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
       const data = await response.json();
-      console.log('Full API response:', data);
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-      
       if (data.success) {
-        console.log('Setting account with data:', data);
         setAccount({
           address: data.address,
           password: data.password,
-          expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes from now
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
           token: data.token,
           accountId: data.accountId
         });
-        setTimeRemaining(600); // Reset timer to 10 minutes
+        setTimeRemaining(600);
         toast.success('Temporary email generated successfully!');
       } else {
-        console.error('API returned error:', data.error);
-        toast.error('Failed to generate temporary email: ' + (data.error as string || 'Unknown error'));
+        toast.error('Failed to generate temporary email: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error generating temporary email:', error);
       toast.error('Error generating temporary email: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsLoading(false);
@@ -114,27 +107,16 @@ export default function TempEmailService() {
 
   const fetchMessages = async () => {
     if (!account) return;
-    
     setIsRefreshing(true);
     try {
       const response = await fetch('/api/temp-email/messages', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          address: account.address,
-          password: account.password,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: account.address, password: account.password }),
       });
-      
       const data = await response.json();
-      if (data.success) {
-        setMessages(data.messages || []);
-        toast.success('Messages refreshed!');
-      }
-    } catch (error) {
-      console.error('Error fetching messages:', error);
+      if (data.success) setMessages(data.messages || []);
+    } catch {
       toast.error('Failed to refresh messages');
     } finally {
       setIsRefreshing(false);
@@ -143,29 +125,19 @@ export default function TempEmailService() {
 
   const fetchMessage = async (messageId: string) => {
     if (!account) return;
-    
     setIsMessageLoading(true);
     try {
-      const response = await fetch('/api/temp-email/message/' + messageId, {
+      const response = await fetch(`/api/temp-email/message/${messageId}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          address: account.address,
-          password: account.password,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: account.address, password: account.password }),
       });
-      
       const data = await response.json();
       if (data.success) {
         const fullMessage = {
           ...data.message,
           id: data.message.id,
-          from: {
-            address: data.message.from.address,
-            name: data.message.from.name || data.message.from.address,
-          },
+          from: { address: data.message.from.address, name: data.message.from.name || data.message.from.address },
           subject: data.message.subject,
           intro: data.message.intro || data.message.text?.substring(0, 150) + '...' || 'No preview available',
           date: data.message.createdAt,
@@ -173,19 +145,12 @@ export default function TempEmailService() {
           fullContent: data.message.text || data.message.html || 'No content available',
         };
         setSelectedMessage(fullMessage);
-        
-        // Update the message in the list as seen
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === messageId ? { ...msg, seen: true } : msg
-          )
-        );
+        setMessages(prev => prev.map(msg => msg.id === messageId ? { ...msg, seen: true } : msg));
       } else {
         toast.error('Failed to fetch message');
       }
-    } catch (error) {
+    } catch {
       toast.error('Error fetching message');
-      console.error('Error:', error);
     } finally {
       setIsMessageLoading(false);
     }
@@ -194,60 +159,45 @@ export default function TempEmailService() {
   const extendTimer = () => {
     setIsExtending(true);
     setTimeout(() => {
-      setTimeRemaining((prev) => prev + 300); // Add 5 minutes
+      setTimeRemaining(prev => prev + 300);
       setIsExtending(false);
       toast.success('Timer extended by 5 minutes!');
     }, 500);
   };
 
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success('Email address copied to clipboard!');
-    } catch (error) {
-      toast.error('Failed to copy email address');
-    }
-  };
-
   const handleExpiration = () => {
     toast.error('Your temporary email has expired!');
-    // Optionally generate a new one automatically
-    setTimeout(() => {
-      generateTempEmail();
-    }, 2000);
+    setTimeout(generateTempEmail, 2000);
   };
 
-  const formatTime = (seconds: number): string => {
+  const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${minutes.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
   };
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString();
-  };
+  const formatDate = (dateString: string) => new Date(dateString).toLocaleString();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Generating your temporary email...</p>
-        </div>
+  if (isLoading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-center">
+        <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4" />
+        <p className="text-muted-foreground">Generating your temporary email...</p>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto space-y-6">
+
         {/* Header */}
         <div className="text-center py-8">
           <h1 className="text-4xl font-bold mb-2">Temp Mail</h1>
           <p className="text-muted-foreground">Free, anonymous, temporary email address</p>
         </div>
 
-        {/* Email Display Card */}
+        {/* Email Display */}
         <Card className="border-2 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -258,50 +208,28 @@ export default function TempEmailService() {
           <CardContent>
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <div className="flex-1 w-full">
-                <div className="font-mono text-lg bg-muted p-3 rounded-lg text-center break-all">
-                  {account?.address || 'No email generated'}
-                </div>
+                <div className="font-mono text-lg bg-muted p-3 rounded-lg text-center break-all">{account?.address || 'No email generated'}</div>
               </div>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={generateTempEmail}
-                  disabled={isLoading}
-                  className="flex items-center gap-2"
-                >
-                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                  New
+                <Button variant="outline" size="sm" onClick={generateTempEmail} disabled={isLoading} className="flex items-center gap-2">
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> New
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Timer and Controls */}
+        {/* Timer */}
         <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5" />
-                <span className="text-sm font-medium">Time Remaining:</span>
-                <Badge 
-                  variant={timeRemaining < 60 ? "destructive" : "secondary"}
-                  className="text-lg px-3 py-1"
-                >
-                  {formatTime(timeRemaining)}
-                </Badge>
-              </div>
-              <Button
-                variant="outline"
-                onClick={extendTimer}
-                disabled={isExtending}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isExtending ? 'animate-spin' : ''}`} />
-                Extend 5 min
-              </Button>
+          <CardContent className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Clock className="h-5 w-5" />
+              <span className="text-sm font-medium">Time Remaining:</span>
+              <Badge variant={timeRemaining < 60 ? 'destructive' : 'secondary'} className="text-lg px-3 py-1">{formatTime(timeRemaining)}</Badge>
             </div>
+            <Button variant="outline" onClick={extendTimer} disabled={isExtending} className="flex items-center gap-2">
+              <RefreshCw className={`h-4 w-4 ${isExtending ? 'animate-spin' : ''}`} /> Extend 5 min
+            </Button>
           </CardContent>
         </Card>
 
@@ -310,23 +238,13 @@ export default function TempEmailService() {
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Inbox className="h-5 w-5" />
-                Inbox ({messages.length})
+                <Inbox className="h-5 w-5" /> Inbox ({messages.length})
               </div>
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipContent>
-                    <p>Check for new messages</p>
-                  </TooltipContent>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={fetchMessages}
-                    disabled={!account || isLoading || isRefreshing}
-                    className="flex items-center gap-2 border-orange hover:bg-orange hover:text-white"
-                  >
-                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                  <TooltipContent><p>Check for new messages</p></TooltipContent>
+                  <Button variant="outline" size="sm" onClick={fetchMessages} disabled={!account || isLoading || isRefreshing} className="flex items-center gap-2 border-orange hover:bg-orange hover:text-white">
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} /> {isRefreshing ? 'Refreshing...' : 'Refresh'}
                   </Button>
                 </Tooltip>
               </TooltipProvider>
@@ -343,11 +261,7 @@ export default function TempEmailService() {
               <ScrollArea className="h-96">
                 <div className="space-y-3">
                   {messages.map((message) => (
-                    <Card 
-                      key={message.id} 
-                      className={`transition-colors cursor-pointer hover:bg-muted/30 ${!message.seen ? 'bg-muted/50' : ''}`}
-                      onClick={() => fetchMessage(message.id)}
-                    >
+                    <Card key={message.id} className={`transition-colors cursor-pointer hover:bg-muted/30 ${!message.seen ? 'bg-muted/50' : ''}`} onClick={() => fetchMessage(message.id)}>
                       <CardContent className="p-4">
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1">
@@ -359,9 +273,7 @@ export default function TempEmailService() {
                             <p className="text-sm text-muted-foreground line-clamp-2">{message.intro}</p>
                           </div>
                           <div className="flex flex-col items-end gap-2 ml-4">
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                              {formatDate(message.date)}
-                            </span>
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(message.date)}</span>
                             <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); fetchMessage(message.id); }}>
                               <ExternalLink className="h-4 w-4" />
                             </Button>
@@ -376,14 +288,16 @@ export default function TempEmailService() {
           </CardContent>
         </Card>
 
+        {/* --- Integrated Ad Container --- */}
+        <div id="ad-container" className="mt-6 w-full flex justify-center"></div>
+
         {/* Footer */}
         <div className="text-center py-8 text-sm text-muted-foreground space-y-2">
           <p>No registration required • Messages auto-delete after expiration</p>
           <div className="flex items-center justify-center gap-4">
             <Link href="/policy">
               <Button variant="ghost" size="sm" className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
-                <Shield className="h-4 w-4" />
-                Privacy Policy & Terms
+                <Shield className="h-4 w-4" /> Privacy Policy & Terms
               </Button>
             </Link>
           </div>
@@ -394,19 +308,13 @@ export default function TempEmailService() {
           <DialogContent className="max-w-2xl max-h-[80vh]">
             <DialogHeader>
               <div className="flex items-center justify-between">
-                <DialogTitle className="text-lg font-semibold">
-                  {selectedMessage?.subject}
-                </DialogTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedMessage(null)}
-                >
+                <DialogTitle className="text-lg font-semibold">{selectedMessage?.subject}</DialogTitle>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedMessage(null)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
             </DialogHeader>
-            
+
             {isMessageLoading ? (
               <div className="flex items-center justify-center py-8">
                 <RefreshCw className="h-6 w-6 animate-spin" />
@@ -414,32 +322,19 @@ export default function TempEmailService() {
             ) : selectedMessage ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-sm text-muted-foreground border-b pb-2">
-                  <div>
-                    <span className="font-medium">From: </span>
-                    {selectedMessage.from.name} &lt;{selectedMessage.from.address}&gt;
-                  </div>
+                  <div><span className="font-medium">From: </span>{selectedMessage.from.name} &lt;{selectedMessage.from.address}&gt;</div>
                   <div>{formatDate(selectedMessage.date)}</div>
                 </div>
-                
+
                 <ScrollArea className="max-h-96">
                   <div className="prose prose-sm max-w-none">
-                    {selectedMessage.fullContent?.split('\n').map((paragraph, index) => (
-                      <p key={index} className="mb-2">
-                        {paragraph}
-                      </p>
-                    ))}
+                    {selectedMessage.fullContent?.split('\n').map((p, idx) => <p key={idx} className="mb-2">{p}</p>)}
                   </div>
                 </ScrollArea>
-                
+
                 <div className="flex gap-2 pt-4 border-t">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setSelectedMessage(null)}
-                    className="flex items-center gap-2 border-orange hover:bg-orange hover:text-white"
-                  >
-                    <X className="h-4 w-4" />
-                    Close
+                  <Button variant="outline" size="sm" onClick={() => setSelectedMessage(null)} className="flex items-center gap-2 border-orange hover:bg-orange hover:text-white">
+                    <X className="h-4 w-4" /> Close
                   </Button>
                 </div>
               </div>
