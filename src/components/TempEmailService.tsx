@@ -68,43 +68,42 @@ export default function TempEmailService() {
 // ✅ --- Safe third-party ad injection ---
 // ✅ Sandboxed banner ad (prevents top-level redirects)
 // Safe-but-permissive sandboxed banner ad
+// Adsterra sandboxed banner (prevents top-level redirects)
 useEffect(() => {
   const timer = setTimeout(() => {
     try {
       const host = document.getElementById('banner-ad-box');
       if (!host) return;
 
-      // 1) Make a sandboxed iframe
+      // Create a sandboxed iframe that the ad will live inside
       const iframe = document.createElement('iframe');
-      iframe.title = 'ad';
-      iframe.referrerPolicy = 'no-referrer';
-      iframe.frameBorder = '0';
-      iframe.scrolling = 'no';
+      iframe.title = 'Adsterra Banner';
       iframe.width = '160';
       iframe.height = '300';
+      iframe.frameBorder = '0';
+      iframe.scrolling = 'no';
+      iframe.referrerPolicy = 'no-referrer';
+      // Allow scripts + same-origin; permit top navigation only by user click
+      iframe.setAttribute(
+        'sandbox',
+        'allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation'
+      );
 
-      // Key: allow the ad JS to run and open a new tab on user click,
-      // but DO NOT allow silent top-level redirects.
-      iframe.sandbox.add('allow-scripts');
-      iframe.sandbox.add('allow-same-origin');
-      iframe.sandbox.add('allow-popups');
-      iframe.sandbox.add('allow-top-navigation-by-user-activation');
-
-      host.innerHTML = ''; // clear "Loading Ad…"
+      host.innerHTML = ''; // remove "Loading Ad..."
       host.appendChild(iframe);
 
       const doc = iframe.contentDocument || iframe.contentWindow?.document;
       if (!doc) return;
 
-      // 2) Write a minimal HTML shell and load the ad INSIDE the iframe
+      // Write a minimal HTML page into the iframe and load the Adsterra invoke.js there
       doc.open();
       doc.write(`<!doctype html>
 <html>
-  <head><meta charset="utf-8"></head>
+  <head><meta charset="utf-8" /></head>
   <body style="margin:0;padding:0;overflow:hidden;width:160px;height:300px;">
     <div id="ad-slot" style="width:160px;height:300px;"></div>
     <script>
-      // Must exist before invoke.js
+      // Adsterra options must exist BEFORE invoke.js
       window.atOptions = {
         key: 'c0dde8f95414a6ee4c64549b85d55051',
         format: 'iframe',
@@ -118,21 +117,21 @@ useEffect(() => {
 </html>`);
       doc.close();
 
-      // 3) Watchdog: if nothing renders in 6s, show a fallback
+      // Fallback if blocked/no-fill after 6s
       setTimeout(() => {
         try {
-          const d = iframe.contentDocument || iframe.contentWindow?.document;
-          const filled = d && d.body && d.body.querySelector('iframe, ins, a, img');
+          const idoc = iframe.contentDocument || iframe.contentWindow?.document;
+          const filled = idoc && idoc.body && idoc.body.querySelector('iframe, ins, a, img');
           if (!filled) {
             host.innerHTML =
-              '<div style="width:160px;height:300px;display:flex;align-items:center;justify-content:center;border:1px dashed #ccc;border-radius:8px;color:#888;font:12px system-ui">No ad available</div>';
+              '<div style="width:160px;height:300px;display:flex;align-items:center;justify-content:center;border:1px dashed #ccc;border-radius:8px;color:#888;font:12px system-ui">Ad blocked or unavailable</div>';
           }
         } catch {}
       }, 6000);
-    } catch (e) {
-      console.error('Ad load failed', e);
+    } catch (err) {
+      console.error('Adsterra banner failed to load:', err);
     }
-  }, 1200);
+  }, 1200); // small delay to let hydration finish
 
   return () => clearTimeout(timer);
 }, []);
@@ -349,7 +348,8 @@ useEffect(() => {
         </Card>
 
         {/* --- Integrated Ad Container --- */}
-    <div className="flex justify-center mt-8">
+  {/* Adsterra Banner Box (160×300) */}
+<div className="flex justify-center mt-8">
   <div
     id="banner-ad-box"
     className="border rounded-lg shadow-md p-4 bg-muted flex items-center justify-center"
@@ -358,11 +358,6 @@ useEffect(() => {
     <p className="text-sm text-muted-foreground">Loading Ad...</p>
   </div>
 </div>
-
-        
- 
-
-        
 
         {/* Footer */}
         <div className="text-center py-8 text-sm text-muted-foreground space-y-2">
